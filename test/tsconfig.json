@@ -1,0 +1,17 @@
+{
+    "extends": "../tsconfig.json",
+    "compilerOptions": {
+        "baseUrl": "./",
+        "experimentalDecorators": true,
+        "strictPropertyInitialization": false,
+        "isolatedModules": false,
+        "strict": false,
+        "noImplicitAny": false,
+        "typeRoots": ["../node_modules/@types"]
+    },    
+    "paths": {
+        "@hottomali/postman-utils/test": ["./utility/index.ts"]
+    },
+    "exclude": ["../node_modules"],
+    "include": ["./**/*.ts", "../src/.d.ts"]
+}

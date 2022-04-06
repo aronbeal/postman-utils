@@ -1,0 +1,12 @@
+{
+    "extends": "@tsconfig/node16/tsconfig.json",
+    "compilerOptions": {
+        "module": "amd",
+        "sourceMap": false,
+        "outFile": "built/hebbia_utils.js",
+        "noEmitOnError": true,
+        "removeComments": false
+    },
+    "include": ["src/**/*.ts", "src/.d.ts"],
+    "exclude": ["node_modules"]
+}
