@@ -1,6 +1,6 @@
-# Postmark utilities
+# Postman utilities
 
-Defines a set of utility scripts for working with Postmark.  These scripts a written in Typescript, and designed to be compiled down to a single compressed `index.min.js` file.  You can then embed that file in a gist (for a controlled release), or link to it directly.
+Defines a set of utility scripts for working with Postman.  These scripts a written in Typescript, and designed to be compiled down to a single compressed `index.min.js` file.  You can then embed that file in a gist (for a controlled release), or link to it directly.
 
 ## Repo overview
 
