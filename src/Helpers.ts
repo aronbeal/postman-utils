@@ -1,7 +1,7 @@
 /**
  * Conversion utilities used in multiple places.
  */
-export const iri_to_id = (iri: string): string => {
+const iri_to_id = (iri: string): string => {
     if (typeof iri !== 'string') {
         throw new Error("Error: Non-string value passed to iri_to_id()");
     }
@@ -15,7 +15,7 @@ export const iri_to_id = (iri: string): string => {
  * @param {string} value The value to test.pn
  * @returns {boolean} true if undefined, null, or empty string.
  */
-export const is_empty = (value: any) => value === undefined || value === null || value === '';
+const is_empty = (value: any) => value === undefined || value === null || value === '';
 
 
 /**
@@ -35,7 +35,7 @@ export const is_empty = (value: any) => value === undefined || value === null ||
  * let foo = random_string(6, 'a')
  * console.log(foo); // e.g. akenbz
  */
-export const random_string = (length: number, chars: string): string => {
+const random_string = (length: number, chars: string): string => {
     let mask = '';
     if (chars.indexOf('a') > -1) mask += 'abcdefghijklmnopqrstuvwxyz';
     if (chars.indexOf('A') > -1) mask += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -46,4 +46,10 @@ export const random_string = (length: number, chars: string): string => {
     for (let i = length; i > 0; --i)
         result += mask[Math.floor(Math.random() * mask.length)];
     return result;
+};
+
+export {
+    iri_to_id,
+    is_empty,
+    random_string
 };

@@ -29,7 +29,11 @@ class Token {
                 })
                 .join('')
         );
-        return JSON.parse(jsonPayload);
+        let result = JSON.parse(jsonPayload);
+        if (typeof result !== 'object') {
+            throw new Error("Error: Could not construct a decoded token out of the token value " + this.getToken());
+        }
+        return result;
     }
     /**
      * Returns the raw token data, suitable for using in a bearer auth header.

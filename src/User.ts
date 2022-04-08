@@ -20,3 +20,5 @@ import Token from './Token';
         return this.token;
     }
 }
+
+export default User;

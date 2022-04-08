@@ -2,26 +2,29 @@ import Environment from "./Environment";
 import Token from "./Token";
 import { BufferedLog } from "./BufferedLog";
 import { iri_to_id, is_empty, random_string } from "./Helpers";
-import Response from "./Response"
-
+import Response from "./Response";
+import {PostmanEnvArg} from "./Environment";
 
 class Utils {
     env: Environment;
     pm: Postman;
-    logBuffer: BufferedLog;
-    constructor(pm: Postman, initial_environment: JSONObject) {
+    logger: BufferedLog;
+    constructor(pm: Postman, initial_environment: PostmanEnvArg|undefined) {       
         this.pm = pm;
-        this.env = new Environment(pm)
-        this.logBuffer = new BufferedLog();
+        this.logger = new BufferedLog();
+        this.env = new Environment(pm, this.logger);
+        if (initial_environment !== undefined) {
+            this.env.apply(initial_environment);
+        }
+        this.env.validate();
+        
     }
-
     /**
-     * Helper to simplify logging calls for this class.
-     *
-     * @param {string} msg The message to log.
-     * @returns {void}
+     * Returns the environment object this utils uses.
      */
-    private log = (...msgs: any[]): void => this.logBuffer.log(msgs);
+    get_env(): Environment {
+        return this.env;
+    }
 
     /**
     * Stores the data passed in the token about the currently authenticated user.
@@ -30,15 +33,15 @@ class Utils {
     */
     add_token_data(): Utils {
         let token = new Token(this.pm.response.text());
-        this.log("Token data:", token.getDecodedToken());
+        this.logger.log("Token data:", token.getDecodedToken());
         this.env.set('tokens.current', token.getToken());
         this.env.set('refresh_tokens.current', token.getRefreshToken());
 
-        let email = token.getDecodedToken().email;
+        const email = token.getDecodedToken().email;
         this.env.set('tokens.' + email, token.getToken());
         this.env.set('refresh_tokens.' + email, token.getRefreshToken());
         // Assign all token data to Postman variables.
-        let decoded_token = token.getDecodedToken();
+        const decoded_token = token.getDecodedToken();
         Object.keys(decoded_token).map(index => {
             let value = decoded_token[index];
             if (Array.isArray(value)) {
@@ -57,7 +60,7 @@ class Utils {
                 this.env.set('current_user.' + index, value);
             }
         });
-        this.log("Token data added.  Environment: ", this.env.filter());
+        this.logger.log("Token data added.  Environment: ", this.env.filter());
 
         return this;
     }
@@ -107,19 +110,6 @@ class Utils {
     }
 
     /**
-     * Allows use of a Postman faker variable in script.
-     * @param {string} varname The faker variable name.  Can include or not the dollar sign.
-     * @return {*} A faker value for that key
-     * @see https://learning.postman.com/docs/writing-scripts/script-references/variables-list/
-     */
-    faker(varname: string) {
-        const { Property } = require('postman-collection');
-        // Make the $ be optional.
-        varname = varname.replace(/\$/, '');
-        return Property.replaceSubstitutions('{{$' + varname + '}}');
-    }
-
-    /**
      * Returns the response from the last request, wrapped in a utility class.
      * @returns Response
      */
@@ -158,24 +148,8 @@ class Utils {
         this.pm.request.headers.add({
             key: 'version',
             value: this.env.get('version')
-        });
+        });        
 
-        return this;
-    }
-
-    /**
-     * Retrieves a password stored in AWS.  Operates by using current user AWS credentials.
-     */
-    get_stored_password() {
-        const sts_endpoint = 'https://sts.us-east-1.amazonaws.com';
-        const aws_access_key_id = this.pm.environment.get('secret.aws_access_key_id')
-
-    }
-
-    /**
-     * Adds pre-request behaviour for all requests.
-     */
-    pre_request_all() {
         const x_portal_neutral = JSON.stringify({
             "caller": "admin-client",
             "subdomain": "admin"
@@ -200,10 +174,18 @@ class Utils {
                 value: 'application/ld+json, application/json'
             });
         }
-        console.info("Headers sent in request", this.pm.request.headers.all());
+
+        return this;
     }
 
+    /**
+     * Retrieves a password stored in AWS.  Operates by using current user AWS credentials.
+     */
+    get_stored_password() {
+        const sts_endpoint = 'https://sts.us-east-1.amazonaws.com';
+        const aws_access_key_id = this.pm.environment.get('secret.aws_access_key_id')
 
+    }
 
     /**
     * Sets a single named endpoint variable.
@@ -246,14 +228,14 @@ class Utils {
         let response = this.get_response();
         let items = response.getObjects();
         if (items.length === 0) {
-            this.log("No results returned, not setting any endpoint vars");
+            this.logger.log("No results returned, not setting any endpoint vars");
 
             return this;
         }
         const endpoint = key ?? this.pm.request.url.path[0];
         const set_iri_and_id = (endpoint: string, target_id: string, object: JSONObject) => {
             this.pm.expect(endpoint).to.be.a('string');
-            this.pm.expect(target_id).to.not.be.undefined;
+            this.pm.expect(target_id).to.not.be.undefined();
             this.pm.expect(object).to.be.an('object');
             this.pm.expect(object['@id']).to.be.a('string');
             let iri: JSONValue = object['@id'];

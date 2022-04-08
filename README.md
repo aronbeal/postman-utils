@@ -1,8 +1,18 @@
 # Postman utilities
 
-Defines a set of utility scripts for working with Postman.  These scripts a written in Typescript, and designed to be compiled down to a single compressed `index.min.js` file.  You can then embed that file in a gist (for a controlled release), or link to it directly.
+Defines a set of utility scripts for working with Postman.  These scripts a written in Typescript, and designed to be compiled down to a single compressed file, which is then imported by postman during environment setup.
 
-## Repo overview
+- [Overview](#overview)
+  - [Requirements](#requirements)
+- [Development](#development)
+- [Deployment](#deployment)
+  
+## Overview
+
+### Requirements
+- Host machine with Visual studio code on it.
+- node >= 16
+- npm or pnpm or yarn
 
 Contained in this repo:
 - `src`: Typescript source files for the project.
@@ -12,3 +22,21 @@ Contained in this repo:
 - `.mocharc.json`: For testing.
 - `.nycrc.json`: For testing.
 - `register.js`: for testing.
+- `serve.js`: For serving built code locally, for testing changes.
+
+
+## Development
+
+To build the output: `npm run build`.
+To test the output: `npm run test`
+To build the output interactively, watching for changes: `npm run watch build`
+TODO
+
+
+## Deployment
+To build (from module root):
+- `npm run build`
+- Edit your Postman Hebbia environment, and set the value of `reserved.gist_url
+` to be 
+- Change your env file to  to [this gist](https://gist.github.com/abeal-hottomali/4f9aef55db4047c0f2bdad0acfdbad76)
+- Run Postman to test changes.
