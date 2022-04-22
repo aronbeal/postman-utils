@@ -7,11 +7,12 @@ module.exports = {
     // entry files
     entry: './src/index.ts',
     output: {
-        filename: "hebbia_utils.min.js",
+        filename: "postman_utils.min.js",
         path: path.resolve(__dirname, 'built'),
+        globalObject: 'this',
         library: {
-            name: "UtilsFactory",
-            type: "this"
+            name: "PostmanUtilsFactory",
+            type: "umd"
         }
     },
 

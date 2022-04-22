@@ -1,29 +1,76 @@
 import Environment from "./Environment";
 import Token from "./Token";
-import { BufferedLog } from "./BufferedLog";
+import { Logger } from "./Logger";
 import { iri_to_id, is_empty, random_string } from "./Helpers";
 import Response from "./Response";
-import {PostmanEnvArg} from "./Environment";
+import { stat } from "fs";
 
 class Utils {
     env: Environment;
     pm: Postman;
-    logger: BufferedLog;
-    constructor(pm: Postman, initial_environment: PostmanEnvArg|undefined) {       
+    logger: Logger;
+    constructor(pm: Postman) {
         this.pm = pm;
-        this.logger = new BufferedLog();
+        this.logger = new Logger();
         this.env = new Environment(pm, this.logger);
-        if (initial_environment !== undefined) {
-            this.env.apply(initial_environment);
-        }
-        this.env.validate();
-        
     }
+    /**
+     * This is the meat of the utils script.  It takes all variables set
+     * in State and Preferences, and populates them to local variables.
+     * That makes them accessible (without prefix) for the duration of the
+     * request.  It must be called prior to every request in the collection
+     * that relies on utils or on utils-stored variables.
+     */
+    prerequest() {
+        console.info("Running universal pre-request");
+        // Confirm valid environment.
+        this.env.validate(); 
+        const vars: {[k:string]:any} = {};
+        const state_values = this.getEnv().getState().getAll();
+        Object.keys(state_values)           
+            .map((k: string) => vars[k] = state_values[k]);
+        Object.keys(state_values)           
+            .map((k: string) => this.pm.variables.set(k, state_values[k]));
+        const preference_values = this.getEnv().getPreferences().getAll();        
+        
+        Object.keys(preference_values)           
+            .map((k: string) => vars[k] = preference_values[k]);
+        Object.keys(preference_values)
+            .map((k: string) => this.pm.variables.set(k, preference_values[k]));
+        console.info('Available variables: ', vars);
+    }
+
+
+    /**
+     * Asserts that a given local variable is not undefined.
+     * 
+     * Variables are populated locally to pm.variables during prerequest()
+     * in utils.  This is for callers to ensure that a given state or 
+     * or preference variable was set properly.
+     *
+     * @param {string} varname
+     *   The variable name to assert.
+     */
+     assert(varname: string): Utils {
+        if (!this.pm.variables.has(varname)) {
+            throw new Error(`The environment variable ${varname} should exist as a local variable, but does not.  It may have been cleared by a prior operation, or not yet set with the appropriate LIST or POST call.`);
+        }
+
+        return this;
+    }
+
     /**
      * Returns the environment object this utils uses.
      */
-    get_env(): Environment {
+    getEnv(): Environment {
         return this.env;
+    }
+
+    /**
+     * Returns the global utils logger object.
+     */
+    getLogger(): Logger {
+        return this.logger;
     }
 
     /**
@@ -31,15 +78,16 @@ class Utils {
     * @returns {object}
     *   Returns the utils object for chaining.
     */
-    add_token_data(): Utils {
+    addTokenData(): Utils {
         let token = new Token(this.pm.response.text());
-        this.logger.log("Token data:", token.getDecodedToken());
-        this.env.set('tokens.current', token.getToken());
-        this.env.set('refresh_tokens.current', token.getRefreshToken());
+        this.logger.log(["Token data:", token.getDecodedToken()]);
+        const state = this.env.getState();
+        state.set('tokens.current', token.getToken());
+        state.set('refresh_tokens.current', token.getRefreshToken());
 
         const email = token.getDecodedToken().email;
-        this.env.set('tokens.' + email, token.getToken());
-        this.env.set('refresh_tokens.' + email, token.getRefreshToken());
+        state.set('tokens.' + email, token.getToken());
+        state.set('refresh_tokens.' + email, token.getRefreshToken());
         // Assign all token data to Postman variables.
         const decoded_token = token.getDecodedToken();
         Object.keys(decoded_token).map(index => {
@@ -50,17 +98,17 @@ class Utils {
                         throw "No IRI available, cannot get ID.";
                     }
                     let id = iri_to_id(iri);
-                    this.env.set(email + '.' + index + '.' + i, id);
-                    this.env.set('current_user.' + index + '.' + i, id)
+                    state.set(email + '.' + index + '.' + i, id);
+                    state.set('current_user.' + index + '.' + i, id)
                 });
             } else if (typeof value === 'string') {
                 let id = iri_to_id(value);
-                this.env.set('current_user.' + index, id);
+                state.set('current_user.' + index, id);
             } else {
-                this.env.set('current_user.' + index, value);
+                state.set('current_user.' + index, value);
             }
         });
-        this.logger.log("Token data added.  Environment: ", this.env.filter());
+        this.logger.log(["Token data added.  Environment: ", this.env.filter()]);
 
         return this;
     }
@@ -74,16 +122,14 @@ class Utils {
     * @returns {object}
     *   Returns the utils object for chaining.
     */
-    clear_endpoint_var(varname: string): Utils {
+    clearEndpointVar(varname: string): Utils {
         this.pm.expect(this.pm.response.code).to.be.oneOf([200, 201, 204]);
         const endpoint = this.pm.request.url.path[0];
         // Clear all prior variables of this type
-        const keys_removed = [];
-        this.env.keys()
-            .map(arrItem =>
-                arrItem.startsWith(endpoint)
-                && arrItem.endsWith('.' + varname)
-                && this.env.unset(arrItem));
+        const state = this.env.getState();
+        state.getAll()
+            .filter((item: string) => item === `${endpoint}.${varname}`)
+            .map((item: string) => state.delete(item));
 
         return this;
     }
@@ -97,91 +143,33 @@ class Utils {
      * @returns {object}
      *   Returns the utils object for chaining.
      */
-    clear_endpoint_vars() {
+    clearEndpointVars(): Utils {
         if (this.pm.response !== undefined) {
             this.pm.expect(this.pm.response.code).to.be.oneOf([200, 201, 204]);
         }
         const endpoint = this.pm.request.url.path[0];
         // Clear all prior variables of this type
-        this.env.keys()
-            .map(arrItem =>
-                arrItem.startsWith(endpoint)
-                && this.env.unset(arrItem));
+        const state = this.env.getState();
+        state.getAll()
+            .filter((item: string) => item.startsWith(endpoint))
+            .map((item: string) => state.delete(item));
+
+        return this;
     }
 
     /**
      * Returns the response from the last request, wrapped in a utility class.
      * @returns Response
      */
-    get_response(): Response {
+    getResponse(): Response {
         return new Response(this.pm.response.text());
-    }
-
-    /**
-     * Gets a variable value using the value extracted from a key in the response.
-     *
-     * If the key is not present, triggers an error.
-     *
-     * Example:
-     * on the path POST /images/profile_image
-     * Calling get_var_from_response('@id')
-     * will fetch the value of the `@id` key at the
-     * root level of the JSON response.   You can drill down using
-     * lodash dot syntax, which this uses under the hood.
-     * 
-     * @param string response_key The key to search for
-     * @return mixed The value at that key.  The value MUST be present.  Will
-     *               trigger an error if not.
-     */
-    get_var_from_response(response_key: string) {
-        return this.get_response().getFromResponse(response_key);
-    }
-
-    /**
-    * Perform actions and operations common to every request.
-    *
-    * @returns {object}
-    *   Returns the utils object for chaining.
-    */
-    pre_request() {
-        // Add the Postman export versio number, so the API can prompt for an upgrade.
-        this.pm.request.headers.add({
-            key: 'version',
-            value: this.env.get('version')
-        });        
-
-        const x_portal_neutral = JSON.stringify({
-            "caller": "admin-client",
-            "subdomain": "admin"
-        });
-        // if (!this.pm.request.headers.has("X-Portal")) {
-        //     console.info('No X-portal header defined, using ' + x_portal_neutral);
-        //     this.pm.request.headers.add({
-        //         key: 'X-Portal',
-        //         name: 'X-Portal',
-        //         disabled: false,
-        //         value: x_portal_neutral
-        //     });
-        // }
-        // Add Accept to every request if the script does not supply its own, so that we always get JSON or JSONLD output.
-        // simulating the the call came from the front-end client.
-        if (!this.pm.request.headers.has("Accept")) {
-            console.info('No Accept header defined, adding one to ensure JSON or JSONLD output.');
-            this.pm.request.headers.add({
-                key: 'Accept',
-                name: 'Accept',
-                disabled: false,
-                value: 'application/ld+json, application/json'
-            });
-        }
-
-        return this;
     }
 
     /**
      * Retrieves a password stored in AWS.  Operates by using current user AWS credentials.
      */
-    get_stored_password() {
+    getStoredPassword() {
+        throw new Error("Not yet implemented");
         const sts_endpoint = 'https://sts.us-east-1.amazonaws.com';
         const aws_access_key_id = this.pm.environment.get('secret.aws_access_key_id')
 
@@ -197,14 +185,14 @@ class Utils {
     * @returns {object}
     *   Returns the utils object for chaining.
     */
-    set_endpoint_var(varname: string) {
-        let response = this.get_response();
+    setEndpointVar(varname: string): Utils {
+        let response = this.getResponse();
         const iri: string = response.getFromResponse('@id'); // throws if not set.
         const id: string = iri_to_id(iri);
         // Sets the 'last' variable for this entity type to the result of this
         // request for the owning entity.
         const endpoint = this.pm.request.url.path[0];
-        this.env.set(endpoint + '.last', id);
+        this.env.getState().set(endpoint + '.last', id);
 
         return this;
     }
@@ -223,9 +211,9 @@ class Utils {
      * @returns {object}
      *   Returns the utils object for chaining.
      */
-    set_endpoint_vars(key: string | null = null): Utils {
+    setEndpointVars(key: string | null = null): Utils {
         this.pm.expect(this.pm.response.code).to.be.oneOf([200, 201]);
-        let response = this.get_response();
+        let response = this.getResponse();
         let items = response.getObjects();
         if (items.length === 0) {
             this.logger.log("No results returned, not setting any endpoint vars");
@@ -242,10 +230,11 @@ class Utils {
             if (typeof iri !== 'string') {
                 throw new Error("IRI could not be found for item in list.");
             }
+            const state = this.env.getState();
             let id = iri_to_id(iri);
-            this.env.set(endpoint + '.' + target_id, id);
-            this.env.set(endpoint + '.iri.' + target_id, iri);
-            this.env.set(endpoint + '.objects.' + target_id, object);
+            state.set(endpoint + '.' + target_id, id);
+            state.set(endpoint + '.iri.' + target_id, iri);
+            state.set(endpoint + '.objects.' + target_id, object);
         };
         items.map((element, index) => {
             set_iri_and_id(endpoint, (index + 1).toString(), element);
@@ -268,7 +257,7 @@ class Utils {
      *
      * Example:
      * on the path POST /images/profile_image
-     * Calling set_var_from_value('profile_images.last','id')
+     * Calling setVarFromValue('profile_images.last','id')
      * as one of the Tests to run post-execution will set
      * the variable 'profile_images.last' to the id of the newly
      * created entity.
@@ -276,8 +265,8 @@ class Utils {
      * @returns {this}
      *   Returns the utils object for chaining.
      */
-    set_var_from_key(full_varname: string, response_key: string): Utils {
-        this.env.set(full_varname, this.get_response().getFromResponse(response_key));
+    setVarFromKey(full_varname: string, response_key: string): Utils {
+        this.env.getState().set(full_varname, this.getResponse().getFromResponse(response_key));
 
         return this;
     }
@@ -301,14 +290,14 @@ class Utils {
     * @throws Error
     *   If the function does not return a non-empty, scalar value.
     */
-    set_var_from_callback(full_varname: string, fn: CallableFunction): Utils {
-        let value = fn(this.get_response().getResponseObject());
+    setVarFromCallback(full_varname: string, fn: CallableFunction): Utils {
+        let value = fn(this.getResponse().getResponseObject());
         if (is_empty(value)) {
             throw new Error(
-                `set_var_from_callback: The supplied callback {fn} did not return a value.`
+                `setVarFromCallback: The supplied callback {fn} did not return a value.`
             );
         }
-        this.env.set(full_varname, value);
+        this.env.getState().set(full_varname, value);
 
         return this;
     }
@@ -322,8 +311,8 @@ class Utils {
      * @returns {object}
      *   Returns the utils object for chaining.
      */
-    set_random_string(): Utils {
-        this.env.set('random_string', random_string(15, 'aA'));
+    setRandomString(): Utils {
+        this.env.getState().set('random_string', random_string(15, 'aA'));
 
         return this;
     }

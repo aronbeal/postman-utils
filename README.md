@@ -2,6 +2,8 @@
 
 Defines a set of utility scripts for working with Postman.  These scripts a written in Typescript, and designed to be compiled down to a single compressed file, which is then imported by postman during environment setup.
 
+This project uses [pnpm](https://pnpm.io/installation), but any package manager will do.  You will need to modify the commands below, however.
+
 - [Overview](#overview)
   - [Requirements](#requirements)
 - [Development](#development)
@@ -27,16 +29,14 @@ Contained in this repo:
 
 ## Development
 
-To build the output: `npm run build`.
-To test the output: `npm run test`
-To build the output interactively, watching for changes: `npm run watch build`
+Initial setup: `pnpm install`.
+To build the output: `pnpm build`.
+To test the output: `pnpm test`
+To serve the built output locally at <http://localhost:9999>: `pnpm serve`.  This URL can be then use in a task such as **Environment: DEV** in the URL bar.  That setup endpoint will store the built script results locally for later reuse in the rest of the collection.  This approach is for when you 
+need to make modifications to utils, not necessarily when the endpoints need modification.
+
 TODO
 
 
 ## Deployment
-To build (from module root):
-- `npm run build`
-- Edit your Postman Hebbia environment, and set the value of `reserved.gist_url
-` to be 
-- Change your env file to  to [this gist](https://gist.github.com/abeal-hottomali/4f9aef55db4047c0f2bdad0acfdbad76)
-- Run Postman to test changes.
+TODO

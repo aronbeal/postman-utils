@@ -19,11 +19,12 @@ interface JSONArray extends Array<JSONValue> { }
  * This includes our pre-defined keys
  */
 interface PostmanEnvironment {
-    get: (string) => any;
-    set: (string, any) => any;
-    unset: (string) => any;
-    toObject(): PostmanEnv;
-    has: (string) => boolean;
+    [index: string]: any;
+    get: (k: string) => any;
+    set: (k: string, v: any) => any;
+    unset: (k: string) => any;
+    toObject: () => PostmanEnvironment;
+    has: (k: string) => boolean;
     clear: () => any;
 }
 
@@ -31,12 +32,13 @@ interface PostmanEnvironment {
  * (partially) defines the shape of the pm.request object in Postman.
  */
 interface PostmanRequest {
+    [index: string]: any;
     url: {
         path: Array<string>
     }
     headers: {
-        add: (Object) => any;
-        has: (string) => boolean;
+        add: (v: Object) => any;
+        has: (k: string) => boolean;
         all: () => any;
     }
 }
@@ -45,6 +47,7 @@ interface PostmanRequest {
  * (partially) defines the shape of the pm.response object in Postman.
  */
 interface PostmanResponse {
+    [index: string]: any;
     text: () => string
     code: number
 }
@@ -53,11 +56,12 @@ interface PostmanResponse {
  * (partially) defines the shape of the pm object in Postman.
  */
 interface Postman {
+    [index: string]: any;
     environment: PostmanEnvironment;
     collectionVariables: PostmanEnvironment;
-    expect: (any) => any;
+    expect: (o: any) => any;
     globals: PostmanEnvironment;
     request: PostmanRequest;
     response: PostmanResponse;
     variables: PostmanEnvironment;
-};
+}

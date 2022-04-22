@@ -7,7 +7,7 @@
  const port = 9999;
  
  const requestListener = function (req, res) {
-    fs.readFile(__dirname + '/built/hebbia_utils.min.js')
+    fs.readFile(__dirname + '/built/postman_utils.min.js')
         .then(contents => {
             res.setHeader("Content-Type", "text/javascript");
             res.writeHead(200);
