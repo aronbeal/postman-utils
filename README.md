@@ -2,8 +2,6 @@
 
 Defines a set of utility scripts for working with Postman.  These scripts a written in Typescript, and designed to be compiled down to a single compressed file, which is then imported by postman during environment setup.
 
-This project uses [pnpm](https://pnpm.io/installation), but any package manager will do.  You will need to modify the commands below, however.
-
 - [Overview](#overview)
   - [Requirements](#requirements)
 - [Development](#development)
