@@ -7,22 +7,17 @@
  const port = 9999;
  
  const requestListener = function (req, res) {
-    fs.readFile(__dirname + '/built/postman_utils.min.js')
+    fs.readFile(__dirname + '/built' + req.url)
         .then(contents => {
             res.setHeader("Content-Type", "text/javascript");
             res.writeHead(200);
             res.end(contents);
         })
-        .catch(err => {           
-            const error = `Could not start server for serving built hebbia files: ${err}.  Did you run the build task first?`;
-            const json_error = JSON.stringify({
-                'error': error
-            });
-            res.setHeader("Content-Type", "application/json");
-            res.writeHead(500);
-            res.end(json_error);
-            console.error(error);
+        .catch(err => {                   
+            res.writeHead(404);
+            res.end(JSON.stringify({error:"Resource not found"}));
         })
+
  };
  
  const server = http.createServer(requestListener);

@@ -3,7 +3,7 @@
  */
 const iri_to_id = (iri: string): string => {
     if (typeof iri !== 'string') {
-        throw new Error("Error: Non-string value passed to iri_to_id()");
+        return iri;
     }
     return iri.replace(/.*\/([^\/]+)$/, '$1').toString();
 };

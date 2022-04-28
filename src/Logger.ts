@@ -37,6 +37,12 @@ class Logger {
 
         return this;
     }
+    /**
+     * Convenience method to dump an object to console.
+     */
+    dump(obj: any, level: LogLevel = LogLevel.default, verbosity: LogVerbosity = LogVerbosity.default) {
+        this.log([obj], level, verbosity);
+    }
     
     /**
      * Logs one or more messages for later output.  A message here can be 

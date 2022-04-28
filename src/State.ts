@@ -60,7 +60,7 @@ export default class State {
      * Resets current state to default state.
      */
     reset() {
-        this.logger.log("Clearing state...", LogLevel.warn, LogVerbosity.verbose);
+        this.logger.log("Clearing state...", LogLevel.info, LogVerbosity.verbose);
         this.env.setObject(EnvKeys.STATE, {});
     }
 
@@ -70,9 +70,8 @@ export default class State {
      * 
      * @param {string} varname The name of the state variable to retrieve.
      */
-    get(varname: string): any {
-        let current_state = this.env.getObject(EnvKeys.STATE);
-        let state_varname: string = varname.replace(EnvKeys.STATE + '.', '');
+    get(state_varname: string): any {
+        let current_state = this.getAll();
 
         if (typeof current_state[state_varname] === 'undefined') {
             throw new Error(`The key ${state_varname} was never set within the environment state.`);
@@ -84,7 +83,17 @@ export default class State {
      * Returns all values currently stored in state.
      */
     getAll(): {[k: string]: any} {
-        return this.env.getObject(EnvKeys.STATE);
+        return this.env.getObject(EnvKeys.STATE) ?? {};
+    }
+
+
+    /**
+     * Returns all values currently stored in state.
+     */
+    setAll(current_state: any): this {
+        this.env.setObject(EnvKeys.STATE, current_state ?? {});
+
+        return this;
     }
 
     /**
@@ -95,8 +104,7 @@ export default class State {
      * @param {any} value The value to set it to.
      */
     set(state_varname: string, value: any): State {
-        state_varname = state_varname.replace(EnvKeys.STATE + '.', '');
-        let current_state = this.env.getObject(EnvKeys.STATE);
+        let current_state = this.getAll();
 
         current_state[state_varname] = value;
         this.env.setObject(EnvKeys.STATE, current_state);

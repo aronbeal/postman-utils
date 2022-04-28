@@ -113,15 +113,17 @@ export default class Preferences {
     public validate(): this {
         let current_prefs = this.env.getObject(EnvKeys.PREFERENCES);
         validate_preferences(current_prefs);
-        
+
         return this;
     }
 
     /**
      * Applies any passed preferences to the environment.
+     * This is meant to be an exclusive op, overwriting what's there.
      */
     public apply(preferences: any): this {
         preferences = validate_preferences(preferences);
+        this.reset();
         Object.keys(preferences).map((pref: string) => this.set(pref, preferences[pref]));
 
         return this;
@@ -138,11 +140,8 @@ export default class Preferences {
      * Resets current state to default state.
      */
     reset(): this {
-        this.logger.log("Clearing environment preferences...", LogLevel.warn, LogVerbosity.verbose);
-
-        for (const key of Object.keys(default_prefs)) {
-            this.set(key, default_prefs[key]);
-        }
+        this.logger.log("Clearing environment preferences...", LogLevel.info, LogVerbosity.verbose);
+        this.env.setObject(EnvKeys.PREFERENCES, default_prefs);
 
         return this;
     }
@@ -155,15 +154,17 @@ export default class Preferences {
      */
     set(pref_name: string, value: any): this {
         let current_prefs = this.env.getObject(EnvKeys.PREFERENCES);
-
+        if (current_prefs === undefined) {
+            throw new Error('Prefs was undefined!  This should not have happened, check Preferences.ts in postman-utils');
+        }
         current_prefs[pref_name] = value;
         this.env.setObject(EnvKeys.PREFERENCES, current_prefs);
-
         if (pref_name === PreferenceKeys.VERBOSITY) {
             this.logger.setVerbosity(value);
         }
         return this;
     }
+
     /**
      * Retrieves the variable from environment prefs.  
      * 

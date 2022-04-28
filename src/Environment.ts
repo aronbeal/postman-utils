@@ -7,7 +7,7 @@ import Preferences, { PreferenceKeysInterface, PreferenceKeys } from './Preferen
  * named constants rather than literal strings, and so we can do 
  * runtime checks against passed arguments.
  */
- export const EnvKeys = {
+export const EnvKeys = {
     /**
      * Preferences are set only on environment reset. 
      */
@@ -57,14 +57,21 @@ class Environment {
         this.state = new State(this, log);
         this.preferences = new Preferences(this, log);
     }
-
+    /**
+     * For some reason, the internally stored copy of pm doesn't reflect changes
+     * in the "Tests" section.  When called with pretests(), updates the object
+     * so it will work properly.
+     */
+    setPm(pm: Postman) {
+        this.pm = pm;
+    }
     /**
      * Clears the current environment.
      * 
      * This is only meant to be invoked by the "Environment: " endpoints.
      * Clears the existing environment, and sets it fresh.
      */
-    clear(): Environment {
+    reset(preferences: any): Environment {
         // Create an environment out of expected defaults, coupled with 
         // passed values.
         const default_env = {
@@ -73,15 +80,17 @@ class Environment {
             "version": "v2.0.0"
         };
         // Sanity checks pass, set the environment.
+        // Most times, we deal with pm.variables, but this is for clearing
+        // the script itself.
         this.pm.collectionVariables.clear();
-        this.preferences.reset();
+        this.preferences.apply(preferences);
         this.state.reset();
         this.set(EnvKeys.VERSION, 'v2.0.0');
         // Create a new environment, assign defaults, then override with user-supplied values.
 
         this.validate();
         this.logger = new Logger(this.preferences.get(PreferenceKeys.VERBOSITY));
-        this.logger.log("Environment reset.", LogLevel.warn, LogVerbosity.minimal);
+        this.logger.log("Environment reset.", LogLevel.info, LogVerbosity.verbose);
 
         return this;
     }
@@ -108,7 +117,7 @@ class Environment {
      * Throws an exception if not set.
      * Throws an exception if cannot be parsed into an object.
      */
-    getObject(varname: string): JSONObject {
+    getObject(varname: string): any {
         let value = this.get(varname);
         if (value === undefined) {
             return value;
@@ -139,12 +148,12 @@ class Environment {
      * Throws an exception if not set.
      * Throws an exception if cannot be parsed into an object.
      */
-     setObject(varname: string, value: JSONObject): this {
-        if (typeof value !== 'object'|| Object(value) !== value) {
+    setObject(varname: string, value: any): this {
+        if (typeof value !== 'object' || Object(value) !== value) {
             throw new Error(`Value ${value} not recognizable as an object.`)
         }
         let serialized_value = JSON.stringify(value);
-    
+
         if (typeof serialized_value !== 'string') {
             throw new Error(`Expected a string (serialized object) for variable ${varname}, but got ${typeof value}`)
         }
@@ -156,28 +165,13 @@ class Environment {
     /**
      * Function for helping to display the current environment.
      * Filters out unimiportant elements from the environment, and sorts the keys.
-     * 
-     * @throws {Error} if called before postman/Environment sync.
      */
     filter(): { [k: string]: any } {
-        const display_environment: JSONObject = {};
-
-        // These variables are more permanent.
-        let postman_environment = this.pm.collectionVariables.toObject();
-        Object.keys(postman_environment)
-            .filter(key => _is_env_key(key))
-            .sort()
-            .forEach(key => display_environment[key] = postman_environment[key]);
-
-        return display_environment;
-    }
-
-    /**
-     * Returns the keys for the current environment.
-     */
-    keys(): Array<string> {
-        // Direct from Postman, no dirty check required.
-        return this.pm.collectionVariables.toObject().keys();
+        return {
+            [EnvKeys.PREFERENCES]: this.getObject(EnvKeys.PREFERENCES),
+            [EnvKeys.STATE]: this.getObject(EnvKeys.STATE),
+            [EnvKeys.VERSION]: this.get(EnvKeys.VERSION)
+        };
     }
 
     /**
@@ -191,7 +185,7 @@ class Environment {
      * @returns {this}
      */
     set(varname: string, value: any): Environment {
-        this.logger.log("Setting " + varname + " to " + value + " in pm.collectionVariables", LogLevel.info, LogVerbosity.verbose);
+        this.logger.log("Environment: setting " + varname + " to " + value, LogLevel.info, LogVerbosity.very_verbose);
         this.pm.collectionVariables.set(varname, value);
         return this;
     }
@@ -204,7 +198,7 @@ class Environment {
      * @returns {this}
      */
     unset(varname: string): Environment {
-        this.logger.log("Clearing " + varname + " in pm.collectionVariables", LogLevel.info, LogVerbosity.verbose);
+        this.logger.log("Clearing " + varname + " in pm.collectionVariables", LogLevel.info, LogVerbosity.very_verbose);
         this.pm.collectionVariables.toObject().keys()
             .filter((key: string) => (varname === key))
             .map((key: string) => this.pm.collectionVariables.unset(key));

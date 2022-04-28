@@ -1,9 +1,8 @@
 import Environment from "./Environment";
 import Token from "./Token";
-import { Logger } from "./Logger";
+import { Logger, LogLevel, LogVerbosity } from "./Logger";
 import { iri_to_id, is_empty, random_string } from "./Helpers";
 import Response from "./Response";
-import { stat } from "fs";
 
 class Utils {
     env: Environment;
@@ -14,6 +13,16 @@ class Utils {
         this.logger = new Logger();
         this.env = new Environment(pm, this.logger);
     }
+
+    /**
+     * For some reason, the internally stored copy of pm doesn't reflect changes
+     * in the "Tests" section.  When called with pretests(), updates the object
+     * so it will work properly.
+     */
+    setPm(pm: Postman) {
+        this.pm = pm;
+        this.env.setPm(pm);
+    }
     /**
      * This is the meat of the utils script.  It takes all variables set
      * in State and Preferences, and populates them to local variables.
@@ -21,8 +30,9 @@ class Utils {
      * request.  It must be called prior to every request in the collection
      * that relies on utils or on utils-stored variables.
      */
-    prerequest() {
-        console.info("Running universal pre-request");
+    prerequest(pm: Postman) {
+        this.logger.log("Running universal pre-request", LogLevel.info, LogVerbosity.verbose);
+        this.setPm(pm);
         // Confirm valid environment.
         this.env.validate(); 
         const vars: {[k:string]:any} = {};
@@ -37,12 +47,20 @@ class Utils {
             .map((k: string) => vars[k] = preference_values[k]);
         Object.keys(preference_values)
             .map((k: string) => this.pm.variables.set(k, preference_values[k]));
-        console.info('Available variables: ', vars);
+        this.logger.log(['Available variables: ', vars], LogLevel.info, LogVerbosity.verbose);
     }
-
+    /**
+     * Run before all tests in the "Tests" tab for Postman.
+     */
+    pretests(pm: Postman) {
+        this.setPm(pm);
+    }
 
     /**
      * Asserts that a given local variable is not undefined.
+     * 
+     * Note: this uses local variables, not collection variables - that
+     * is not an error.
      * 
      * Variables are populated locally to pm.variables during prerequest()
      * in utils.  This is for callers to ensure that a given state or 
@@ -80,7 +98,7 @@ class Utils {
     */
     addTokenData(): Utils {
         let token = new Token(this.pm.response.text());
-        this.logger.log(["Token data:", token.getDecodedToken()]);
+        this.logger.log(["Adding token data:", token.getDecodedToken()], LogLevel.info, LogVerbosity.minimal);
         const state = this.env.getState();
         state.set('tokens.current', token.getToken());
         state.set('refresh_tokens.current', token.getRefreshToken());
@@ -108,13 +126,13 @@ class Utils {
                 state.set('current_user.' + index, value);
             }
         });
-        this.logger.log(["Token data added.  Environment: ", this.env.filter()]);
+        this.logger.log(["Token data added.  Environment: ", this.env.filter()], LogLevel.default, LogVerbosity.very_verbose);
 
         return this;
     }
 
     /**
-    * Clears a single named endpoint variable.
+    * Clears a single named endpoint variable!
     *
     * Example: Passing the variable '1' with a call to
     * /users would look for the variable 'users.1'.
@@ -216,7 +234,7 @@ class Utils {
         let response = this.getResponse();
         let items = response.getObjects();
         if (items.length === 0) {
-            this.logger.log("No results returned, not setting any endpoint vars");
+            this.logger.log("No results returned, not setting any endpoint vars", LogLevel.default, LogVerbosity.very_verbose);
 
             return this;
         }
@@ -249,6 +267,15 @@ class Utils {
         return this;
     }
 
+    /**
+     * Shortcut to call setVar on state object, which stores transitory
+     * data.  Returns utils. 
+     */
+    setVar(key: string, value: any): this {
+        this.getEnv().getState().set(key, value);
+
+        return this;
+    }
 
     /**
      * Sets a variable name using the value extracted from a key in the response.
