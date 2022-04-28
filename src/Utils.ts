@@ -25,7 +25,7 @@ class Utils {
     }
     /**
      * This is the meat of the utils script.  It takes all variables set
-     * in State and Preferences, and populates them to local variables.
+     * in State and CollectionState, and populates them to local variables.
      * That makes them accessible (without prefix) for the duration of the
      * request.  It must be called prior to every request in the collection
      * that relies on utils or on utils-stored variables.
@@ -34,19 +34,19 @@ class Utils {
         this.logger.log("Running universal pre-request", LogLevel.info, LogVerbosity.verbose);
         this.setPm(pm);
         // Confirm valid environment.
-        this.env.validate(); 
-        const vars: {[k:string]:any} = {};
+        this.env.validate();
+        const vars: { [k: string]: any } = {};
         const state_values = this.getEnv().getState().getAll();
-        Object.keys(state_values)           
+        Object.keys(state_values)
             .map((k: string) => vars[k] = state_values[k]);
-        Object.keys(state_values)           
+        Object.keys(state_values)
             .map((k: string) => this.pm.variables.set(k, state_values[k]));
-        const preference_values = this.getEnv().getPreferences().getAll();        
-        
-        Object.keys(preference_values)           
-            .map((k: string) => vars[k] = preference_values[k]);
-        Object.keys(preference_values)
-            .map((k: string) => this.pm.variables.set(k, preference_values[k]));
+        const collection_state_values = this.getEnv().getCollectionState().getAll();
+
+        Object.keys(collection_state_values)
+            .map((k: string) => vars[k] = collection_state_values[k]);
+        Object.keys(collection_state_values)
+            .map((k: string) => this.pm.variables.set(k, collection_state_values[k]));
         this.logger.log(['Available variables: ', vars], LogLevel.info, LogVerbosity.verbose);
     }
     /**
@@ -64,12 +64,12 @@ class Utils {
      * 
      * Variables are populated locally to pm.variables during prerequest()
      * in utils.  This is for callers to ensure that a given state or 
-     * or preference variable was set properly.
+     * or collection state variable was set properly.
      *
      * @param {string} varname
      *   The variable name to assert.
      */
-     assert(varname: string): Utils {
+    assert(varname: string): Utils {
         if (!this.pm.variables.has(varname)) {
             throw new Error(`The environment variable ${varname} should exist as a local variable, but does not.  It may have been cleared by a prior operation, or not yet set with the appropriate LIST or POST call.`);
         }

@@ -4,8 +4,9 @@
   "private": true,
   "description": "A set of utilities for working with Swagger projects via Postman.",
   "scripts": {
+    "clean": "rm -rf ./built && rm -rf ./coverage",
+    "prebuild": "yarn clean",
     "build": "webpack",
-    "watch": "webpack --watch",
     "serve": "node serve.js",
     "test": "nyc ./node_modules/.bin/_mocha 'test/**/*.test.ts'"
   },

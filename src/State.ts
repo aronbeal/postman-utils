@@ -5,7 +5,7 @@
  * this tracks state between requests to the API.  This is
  * intended to make it easier to reset state on demand.
  * 
- * Unlike Preferences, STATE makes no assertions about what
+ * Unlike COLLECTION_STATE, STATE makes no assertions about what
  * keys it contains.
  */
 import Environment, { EnvKeys } from './Environment';
@@ -15,8 +15,7 @@ interface StateKeysInterface {
     [index: string]: any;
 }
 /**
- * Validates that the passed preferences are valid.
- * @param preferences 
+ * Validates that the passed state is valid. 
  */
  export const validate_state = (state: any): any => {
     // No restrictions on state keys, currently.
@@ -39,8 +38,7 @@ export default class State {
     }
 
     /**
-     * Validates that the passed state is valid.
-     * @param preferences 
+     * Validates that the stored state is valid.
      */
     public validate(): this {
         let current_state = this.env.getObject(EnvKeys.STATE);
@@ -60,8 +58,10 @@ export default class State {
      * Resets current state to default state.
      */
     reset() {
-        this.logger.log("Clearing state...", LogLevel.info, LogVerbosity.verbose);
-        this.env.setObject(EnvKeys.STATE, {});
+        this.logger.log("Clearing state...", LogLevel.info, LogVerbosity.very_verbose);
+        this.env.setObject(EnvKeys.STATE, {
+            "initialized": new Date().toLocaleString('en-CA')
+        });
     }
 
     /**

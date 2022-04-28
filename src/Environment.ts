@@ -1,7 +1,7 @@
 import { is_empty } from "./Helpers";
 import { Logger, LogLevel, LogVerbosity } from "./Logger";
 import State from './State';
-import Preferences, { PreferenceKeysInterface, PreferenceKeys } from './Preferences';
+import CollectionState, { CollectionStateKeys } from './CollectionState';
 /**
  * Constant values so we can represent the keys in the environment by
  * named constants rather than literal strings, and so we can do 
@@ -9,12 +9,15 @@ import Preferences, { PreferenceKeysInterface, PreferenceKeys } from './Preferen
  */
 export const EnvKeys = {
     /**
-     * Preferences are set only on environment reset. 
+     * Collection state is set only on environment reset. It lives in 
+     * pm.collectionVariables, and is persisted to variables for individual
+     * requests.  It has a predefined set of variables it allows.
      */
-    PREFERENCES: 'preferences',
+    COLLECTION_STATE: 'collection-state',
     /**
-    * Storage for operational state.  This should be reset to an empty object when resetting environment.
-    * This is not fully in use yet.
+    * Operational state lives in a separate section in collection variables.
+    * It can be mutated by any individual request. It has no predefined 
+    * structue.
     */
     STATE: 'state',
     /**
@@ -50,12 +53,12 @@ class Environment {
     pm: Postman;
     logger: Logger;
     state: State;
-    preferences: Preferences;
+    collection_state: CollectionState;
     constructor(pm: Postman, log: Logger) {
         this.pm = pm;
         this.logger = log;
         this.state = new State(this, log);
-        this.preferences = new Preferences(this, log);
+        this.collection_state = new CollectionState(this, log);
     }
     /**
      * For some reason, the internally stored copy of pm doesn't reflect changes
@@ -68,14 +71,20 @@ class Environment {
     /**
      * Clears the current environment.
      * 
+     * This effectively clears operational state, and applies the passed
+     * values to collection state, "resetting" the environment to a known
+     * commodity.  You would call this when you want to completely change 
+     * your environment, by enabling blackfire or talking to production,
+     * or some large-scale change.
+     * 
      * This is only meant to be invoked by the "Environment: " endpoints.
      * Clears the existing environment, and sets it fresh.
      */
-    reset(preferences: any): Environment {
+    reset(collection_state: any): Environment {
         // Create an environment out of expected defaults, coupled with 
         // passed values.
         const default_env = {
-            [EnvKeys.PREFERENCES]: this.preferences,
+            [EnvKeys.COLLECTION_STATE]: this.collection_state,
             [EnvKeys.STATE]: this.state,
             "version": "v2.0.0"
         };
@@ -83,14 +92,15 @@ class Environment {
         // Most times, we deal with pm.variables, but this is for clearing
         // the script itself.
         this.pm.collectionVariables.clear();
-        this.preferences.apply(preferences);
+        this.collection_state.apply(collection_state);
         this.state.reset();
         this.set(EnvKeys.VERSION, 'v2.0.0');
         // Create a new environment, assign defaults, then override with user-supplied values.
 
         this.validate();
-        this.logger = new Logger(this.preferences.get(PreferenceKeys.VERBOSITY));
+        this.logger = new Logger(this.collection_state.get(CollectionStateKeys.VERBOSITY));
         this.logger.log("Environment reset.", LogLevel.info, LogVerbosity.verbose);
+        this.logger.dump(this.filter(), LogLevel.info, LogVerbosity.verbose);
 
         return this;
     }
@@ -168,7 +178,7 @@ class Environment {
      */
     filter(): { [k: string]: any } {
         return {
-            [EnvKeys.PREFERENCES]: this.getObject(EnvKeys.PREFERENCES),
+            [EnvKeys.COLLECTION_STATE]: this.getObject(EnvKeys.COLLECTION_STATE),
             [EnvKeys.STATE]: this.getObject(EnvKeys.STATE),
             [EnvKeys.VERSION]: this.get(EnvKeys.VERSION)
         };
@@ -214,10 +224,10 @@ class Environment {
     }
 
     /**
-     * Returns a Preferences object for manipulating preferences.
+     * Returns a CollectionState object for manipulating collection state.
      */
-    getPreferences(): Preferences {
-        return this.preferences;
+    getCollectionState(): CollectionState {
+        return this.collection_state;
     }
 
     /**
@@ -233,7 +243,7 @@ class Environment {
                 throw new Error(`The required key ${k} is not present in postman.`);
             }
         }
-        this.preferences.validate();
+        this.collection_state.validate();
         this.state.validate();
 
         return this;

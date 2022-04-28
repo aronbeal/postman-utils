@@ -8,14 +8,18 @@ const exp = require('constants');
  */
 const clean_oldest_files = (info) => {
     const dir = info.outputPath;
+    console.info(`Cleaning the oldest output in ${dir}`);
     // Sort the files in chronological order.
     fs.readdirSync(info.outputPath)
         .filter(f => {
+            if (!fs.existsSync(f)) {
+                return false;
+            }
             if (!fs.statSync(f).isFile()) {
                 return false;
             }
             if (path.extname(source_filepath) !== '.js') {
-                return;
+                return false;
             }
             return true;
         })
