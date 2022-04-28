@@ -29,20 +29,20 @@ Contained in this repo:
 
 ## Development
 
-Initial setup: `pnpm install`.
-To build the output: `pnpm build`.
-To test the output: `pnpm test`
-To serve the built output locally at <http://localhost:9999>: `pnpm serve`.  This URL can be then use in a task such as **Environment: DEV** in the URL bar.  That setup endpoint will store the built script results locally for later reuse in the rest of the collection.  This approach is for when you 
-need to make modifications to utils, not necessarily when the endpoints need modification.
+Initial setup: `yarn install`.
+To build the output: `yarn build`.
+To test the output: `yarn test`
+To serve the built output locally at <http://localhost:9999>: `yarn serve`.  This URL can be then use in a task such as **Environment: DEV** in the URL bar.  That setup endpoint will store the built script results locally for later reuse in the rest of the collection.  This approach is for when you 
+need to make modifications to utils, not necessarily when the endpoints need modification.  The output will be available at <http://localhost:9999/postman-utils.latest.js>
 
 Currently, to import this script into Postman, you'll set up the following as a pre-request:
 ```js
 // MAIN
 set_global_utils = (pm) => {
-    pm.globals.unset('hebbia.utils_script_text');
+    pm.globals.unset('app.utils_script_text');
     const r = pm.response;
     if (r.code !== 200) {
-        throw new Error("Could not fetch Hebbia utils from postman-utils repo: " + r.code);
+        throw new Error("Could not fetch app utils from postman-utils repo: " + r.code);
     }
     const script_text = r.text();
 
@@ -52,30 +52,26 @@ set_global_utils = (pm) => {
         throw new Error("Utils object not found as expected");
     }
     // Script text is valid, store it.
-    pm.globals.set('hebbia.utils_script_text', script_text);
-    hebbia.getUtils = () => utils;
-    hebbia.hasUtils = () => true;
+    pm.globals.set('app.utils_script_text', script_text);
+    app.getUtils = () => utils;
+    app.hasUtils = () => true;
 };
 
 // Default accessor values.
 // Mostly just a means of easily determining if utils are available.  The methods
 // shown will be overridden by evaluated script.
 // do NOT use 'var', 'const', or anything else here.  It messes up the scope, and
-// will result in 'hebbia' being undefined for other callers.
-hebbia = {
+// will result in 'app' being undefined for other callers.
+app = {
     hasUtils: () => false,
     getUtils: () => {
         throw new Error("Attempted to retrieve utils without calling Environment: endpoint first.  More info: https://github.com/abeal-hottomali/postman-utils");
     }
 }
-// Use a header to allow Environment: calls to reset scripts.
-if (Object.keys(pm.request.getHeaders()).includes('reset-postman')) {
-    console.info("Resetting Postman");
-    pm.globals.unset('hebbia.utils_script_text');
-}
+
 // Populate utils scripts if set.
 // Default version will just throw errors.  eval() command will replace this.
-let script_text = pm.globals.get('hebbia.utils_script_text');
+let script_text = pm.globals.get('app.utils_script_text');
 if (typeof script_text === 'string') {
     // Replaces global utils object.
     eval(script_text);
@@ -83,58 +79,33 @@ if (typeof script_text === 'string') {
     delete this.PostmanUtilsFactory.default;
     utils = utils_factory(pm);
     if (typeof utils !== 'object') {
-        pm.globals.unset('hebbia.utils_script_text')
+        pm.globals.unset('app.utils_script_text')
         throw new Error("Utils object could not be constructed.  Clearing utils script text.");
     }
     // Script evaluated ok. Replace methods on global object with versions that 
     // return utils.
-    hebbia.getUtils = () => utils;
-    hebbia.hasUtils = () => true;
+    app.getUtils = () => utils;
+    app.hasUtils = () => true;
 }
 
 
 /**
  * Prerequest: Called before every request in this collection.  Modify as needed.
  */
-if (hebbia.hasUtils()) {
-    const env = hebbia.getUtils().getEnv();
-    hebbia.getUtils().prerequest(pm);
+if (app.hasUtils()) {
+    const env = app.getUtils().getEnv();
+    app.getUtils().prerequest(pm);
     // Add the Postman export version number, so the API can prompt for an upgrade.
     pm.request.headers.add({
         key: 'version',
         value: env.get('version')
     });
-
-    const x_portal_neutral = JSON.stringify({
-        "caller": "admin-client",
-        "subdomain": "admin"
-    });
-    // if (!pm.request.headers.has("X-Portal")) {
-    //     console.info('No X-portal header defined, using ' + x_portal_neutral);
-    //     pm.request.headers.add({
-    //         key: 'X-Portal',
-    //         name: 'X-Portal',
-    //         disabled: false,
-    //         value: x_portal_neutral
-    //     });
-    // }
-    // Add Accept to every request if the script does not supply its own, so that we always get JSON or JSONLD output.
-    // simulating the the call came from the front-end client.
-    if (!pm.request.headers.has("Accept")) {
-        utils.getLogger().log('No Accept header defined, adding one to ensure JSON or JSONLD output.', 'info', 2);
-        pm.request.headers.add({
-            key: 'Accept',
-            name: 'Accept',
-            disabled: false,
-            value: 'application/ld+json, application/json'
-        });
-    }
 }
 ```
 Use this in your Environment setup script:
 ```js
 set_global_utils(pm);
-const env = hebbia.getUtils().getEnv();
+const env = app.getUtils().getEnv();
 env.reset({
     'baseUrl': 'https://localhost:8443',
     'environment': 'development',
@@ -144,4 +115,5 @@ env.reset({
 ```
 
 ## Deployment
-TODO
+
+Built versions of the code are now committed to repo.  You can access them directly from github via the url <https://raw.githubusercontent.com/abeal-hottomali/postman-utils/main/built/postman-utils.latest.js>.  Just point your Postman request (`GET`) at that url, and use the "environment setup script" above to set variables for your environment.
