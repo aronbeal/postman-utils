@@ -27,6 +27,8 @@ export default class State {
     constructor(env: Environment, log: Logger) {
         this.logger = log;
         this.env = env;
+
+        // By default, state should 
     }
     /**
      * Creates a new state object based on the current 
@@ -86,7 +88,17 @@ export default class State {
         return this.env.getObject(EnvKeys.STATE) ?? {};
     }
 
-
+    
+    /**
+     * Tests if a given env var is stored in state.
+     * 
+     * @param {string} varname The name of the state variable to check
+     */
+     isset(state_varname: string): boolean {
+        let current_state = this.getAll();
+        return typeof current_state[state_varname] !== undefined;
+    }
+    
     /**
      * Returns all values currently stored in state.
      */
@@ -95,7 +107,7 @@ export default class State {
 
         return this;
     }
-
+    
     /**
      * Stores the variable in environment state.  This isolated area is 
      * for tracking items that change between requests.
@@ -105,9 +117,10 @@ export default class State {
      */
     set(state_varname: string, value: any): State {
         let current_state = this.getAll();
-
+        this.logger.log(`Setting ${state_varname} to be ${value}`, LogLevel.default, LogVerbosity.very_verbose);
         current_state[state_varname] = value;
         this.env.setObject(EnvKeys.STATE, current_state);
+        this.logger.log(`New state: ${this.getAll()}`, LogLevel.default, LogVerbosity.very_verbose)
 
         return this;
     }

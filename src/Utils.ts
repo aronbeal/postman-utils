@@ -23,6 +23,7 @@ class Utils {
         this.pm = pm;
         this.env.setPm(pm);
     }
+
     /**
      * This is the meat of the utils script.  It takes all variables set
      * in State and CollectionState, and populates them to local variables.
@@ -126,7 +127,7 @@ class Utils {
                 state.set('current_user.' + index, value);
             }
         });
-        this.logger.log(["Token data added.  Environment: ", this.env.filter()], LogLevel.default, LogVerbosity.very_verbose);
+        this.logger.log(["Token data added.  Environment: ", this.env.filter()], LogLevel.default, LogVerbosity.minimal);
 
         return this;
     }

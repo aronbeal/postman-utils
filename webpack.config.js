@@ -2,15 +2,19 @@ const path = require('path');
 const WebpackBeforeBuildPlugin = require('before-build-webpack');
 const fs = require('fs');
 const exp = require('constants');
+const { exit } = require('process');
+const { isExternalModuleReference } = require('typescript');
 /**
  * TODO: Finish as needed.
  * @param {*} info 
  */
-const clean_oldest_files = (info) => {
-    const dir = info.outputPath;
+const clean_oldest_files = (dir) => {
+    if (!fs.existsSync(dir)) {
+        return;
+    }
     console.info(`Cleaning the oldest output in ${dir}`);
     // Sort the files in chronological order.
-    fs.readdirSync(info.outputPath)
+    fs.readdirSync(dir)
         .filter(f => {
             if (!fs.existsSync(f)) {
                 return false;
@@ -29,7 +33,9 @@ const clean_oldest_files = (info) => {
         })
         .map(f => console.info("File: " + f));
 }
-
+const emit = (compilation) => {
+    clean_oldest_files(__dirname + '/built');
+}
 /**
  * Called after the build asset is emitted. 
  * Creates the copy of the latest build at '/built/postman-utils.latest.js'
