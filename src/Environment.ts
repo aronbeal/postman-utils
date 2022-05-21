@@ -195,7 +195,7 @@ class Environment {
      * @returns {this}
      */
     set(varname: string, value: any): Environment {
-        this.logger.log("Environment: setting " + varname + " to " + value, LogLevel.info, LogVerbosity.very_verbose);
+        this.logger.log("Environment: setting " + varname + " to " + value, LogLevel.info, LogVerbosity.minimal);
         this.pm.collectionVariables.set(varname, value);
         return this;
     }

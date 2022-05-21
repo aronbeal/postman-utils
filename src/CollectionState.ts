@@ -37,7 +37,7 @@ export const CollectionStateKeys = {
      * The value to use for super admin passwords.  This is made
      * distinct, as it may be hydrated dynamically.
      */
-    SUPER_ADMIN_PASSWORD: 'adminPassword',
+    SUPER_ADMIN_PASSWORD: 'superAdminPassword',
     DEFAULT_CONTENT_TYPE: 'defaultContentType',
     DEFAULT_LANGUAGE: 'defaultLanguage',
     DEFAULT_PASSWORD: 'defaultPassword',
