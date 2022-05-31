@@ -1,4 +1,5 @@
 const path = require('path'); 
+const webpack = require('webpack');
 const WebpackBeforeBuildPlugin = require('before-build-webpack');
 const fs = require('fs');
 const exp = require('constants');

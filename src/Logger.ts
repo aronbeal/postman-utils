@@ -33,6 +33,7 @@ class Logger {
      * Allows outside caller to change logger verbosity.
      */
     setVerbosity(verbosity: number): this {
+        console.info(`Logger verbosity set to ${LogVerbosity[verbosity]}`)
         this.verbosityPreference = verbosity;
 
         return this;
@@ -43,7 +44,7 @@ class Logger {
     dump(obj: any, level: LogLevel = LogLevel.default, verbosity: LogVerbosity = LogVerbosity.default) {
         this.log([obj], level, verbosity);
     }
-    
+
     /**
      * Logs one or more messages for later output.  A message here can be 
      * anything, but scalar values are preferred.
@@ -84,4 +85,5 @@ class Logger {
         });
     }
 }
-export { Logger, LogLevel, LogVerbosity };
+export { LogEntry, LogLevel, LogVerbosity };
+export default Logger;

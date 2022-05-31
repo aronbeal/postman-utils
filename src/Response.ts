@@ -1,4 +1,3 @@
-
 /**
  * For ensuring we are dealing with a valid JSON response.
  * (valid, e.g. can be parsed, acual response content).

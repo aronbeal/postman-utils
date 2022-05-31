@@ -1,113 +1,154 @@
-
 /**
  * @file State.ts
- * A sub-set of Environment stored in a separate serialized section,
- * this tracks state between requests to the API.  This is
- * intended to make it easier to reset state on demand.
+ * Stores state variables modified by individual requests.  Values stored
+ * by this object are expected to possibly change with every request.
  * 
- * Unlike COLLECTION_STATE, STATE makes no assertions about what
+ * Unlike KNOWN_STATE, STATE makes no assertions about what
  * keys it contains.
  */
-import Environment, { EnvKeys } from './Environment';
-import { Logger, LogLevel, LogVerbosity } from "./Logger";
+import Environment from './Environment';
+import Logger, { LogLevel, LogVerbosity } from "./Logger";
 
-interface StateKeysInterface {
-    [index: string]: any;
-}
+/**
+ * Used to store data internally in a binary search tree, so that entries are kept sorted.
+ */
+type StateNode = { key: string, value: any };
 /**
  * Validates that the passed state is valid. 
  */
- export const validate_state = (state: any): any => {
+export const validate_state = (state: any): any => {
     // No restrictions on state keys, currently.
     return state;
 };
+
 export default class State {
+    storage_key: string;
     logger: Logger;
     env: Environment;
-    constructor(env: Environment, log: Logger) {
+    current_state: Array<StateNode>;
+    constructor(storage_key: string, env: Environment, log: Logger) {
+        this.storage_key = storage_key;
         this.logger = log;
         this.env = env;
-
-        // By default, state should 
-    }
-    /**
-     * Creates a new state object based on the current 
-     * Postman environment.  This will validate
-     */
-    public static from(env: Environment, log: Logger): State {
-        const current_state = env.getObject(EnvKeys.STATE);
-        return new State(env, log);
+        this.current_state = [];
+        this.load();
     }
 
     /**
-     * Validates that the stored state is valid.
+     * Removes the variable from state.
+     * 
+     * @param {string} state_varname The name of the state variable to remove.
+     * @return {this} For chaining.
      */
-    public validate(): this {
-        let current_state = this.env.getObject(EnvKeys.STATE);
-        validate_state(current_state);
+    public delete(state_varname: string): this {
+        for (let i = 0, entry = this.current_state[i]; i < this.current_state.length; i++, entry = this.current_state[i]) {
+            if (entry.key === state_varname) {
+                this.current_state = this.current_state.slice(0, i).concat(this.current_state.slice(i + 1));
+                this.save();
+                break;
+            }
+            if (entry.key > state_varname) {
+                break;
+            }
+        }
+
+        return this;
+    }
+    
+    /**
+     * Loads the current_state object from the serialized value in the indicated storage key.
+     * This makes the in-memory match what's in the stored source in postman.
+     * 
+     * @return {this} For chaining.
+     */
+    public load(): this {
+        this.current_state = [];
+        if (!this.env.hasState(this.storage_key)) {
+            return this;
+        }
+        const loaded_state = this.env.loadState(this.storage_key);
+        this.setAll(loaded_state);
 
         return this;
     }
 
-    /**
-     * Applies any stored state to the environment.
-     */
-    public apply(): StateKeysInterface {
-        throw new Error('Not yet implemented');
-    }
 
     /**
-     * Resets current state to default state.
-     */
-    reset() {
-        this.logger.log("Clearing state...", LogLevel.info, LogVerbosity.very_verbose);
-        this.env.setObject(EnvKeys.STATE, {
-            "initialized": new Date().toLocaleString('en-CA')
-        });
-    }
-
-    /**
-     * Retrieves the variable from environment state.  This isolated area is 
+     * Retrieves the variable from stored state.  This isolated area is 
      * for tracking items that change between requests.
      * 
      * @param {string} varname The name of the state variable to retrieve.
+     * @returns {any} Returns whatever is stored in that state value.  Expected to be scalar in nature.
+     * @throws {Error} if the entry is not found.
      */
-    get(state_varname: string): any {
-        let current_state = this.getAll();
-
-        if (typeof current_state[state_varname] === 'undefined') {
-            throw new Error(`The key ${state_varname} was never set within the environment state.`);
+    public get(state_varname: string): any {
+        for (let i = 0, entry = this.current_state[i]; i < this.current_state.length; i++, entry = this.current_state[i]) {
+            if (entry.key === state_varname) {
+                return entry.value;
+            }
+            if (entry.key > state_varname) {
+                break;
+            }
         }
-        return current_state[state_varname];
+        throw new Error(`The key ${state_varname} was never set within the state.`);
     }
 
     /**
      * Returns all values currently stored in state.
+     * 
+     * @returns {JSONObject} Returns all values currently in state.
      */
-    getAll(): {[k: string]: any} {
-        return this.env.getObject(EnvKeys.STATE) ?? {};
+    public getAll(): JSONObject {
+        return this.current_state.reduce((result: JSONObject, o: StateNode) => {
+            result[o.key] = o.value;
+
+            return result;
+        }, {});
     }
 
-    
     /**
      * Tests if a given env var is stored in state.
      * 
      * @param {string} varname The name of the state variable to check
      */
-     isset(state_varname: string): boolean {
-        let current_state = this.getAll();
-        return typeof current_state[state_varname] !== undefined;
+    public isset(state_varname: string): boolean {
+        try {
+            this.get(state_varname);
+            return true;
+        } catch (e) {
+            return false;
+        }
     }
-    
+
     /**
-     * Returns all values currently stored in state.
+     * Resets this state to empty.  Persists that to storage.  Returns the state object.
      */
-    setAll(current_state: any): this {
-        this.env.setObject(EnvKeys.STATE, current_state ?? {});
+    public reset(): this {
+        this.logger.log("Clearing state...", LogLevel.info, LogVerbosity.very_verbose);
+        this.current_state = [];
+        this.save();
 
         return this;
     }
-    
+
+    /**
+     * Persists the in-memory copy to the stored source in Postman.
+     */
+    public save() {
+        this.env.saveState(this.storage_key, this.getAll());
+        this.logger.log(`Saved state: ${this.current_state}`, LogLevel.default, LogVerbosity.very_verbose);
+    }
+
+    /**
+      * Applies any passed state to the stored state.
+      */
+    public setAll(state: JSONObject): this {
+        Object.keys(state).map((pref: string) => this.set(pref, state[pref]));
+        this.save();
+
+        return this;
+    }
+
     /**
      * Stores the variable in environment state.  This isolated area is 
      * for tracking items that change between requests.
@@ -115,28 +156,22 @@ export default class State {
      * @param {string} varname The name of the state variable to retrieve.
      * @param {any} value The value to set it to.
      */
-    set(state_varname: string, value: any): State {
-        let current_state = this.getAll();
+    public set(state_varname: string, value: any): this {
         this.logger.log(`Setting ${state_varname} to be ${value}`, LogLevel.default, LogVerbosity.very_verbose);
-        current_state[state_varname] = value;
-        this.env.setObject(EnvKeys.STATE, current_state);
-        this.logger.log(`New state: ${this.getAll()}`, LogLevel.default, LogVerbosity.very_verbose)
+        const entry: StateNode = {
+            key: state_varname, value: value
+        }
+        for (let i = 0; i < this.current_state.length; i++) {
+            if (this.current_state[i].key > state_varname) {
+                this.current_state.splice(i, 0, entry);
+                this.save();
 
-        return this;
-    }
-
-    /**
-     * Stores the variable in environment state.  This isolated area is 
-     * for tracking items that change between requests.
-     * 
-     * @param {string} varname The name of the state variable to retrieve.
-     * @param {any} value The value to set it to.
-     */
-    delete(varname: string): State {
-        let current_state = this.env.getObject(EnvKeys.STATE);
-        delete current_state[varname];
-
-        this.env.setObject(EnvKeys.STATE, current_state);
+                return this;
+            }
+        }
+        // Bigger than all current entries, add to the end.
+        this.current_state.push(entry);
+        this.save();
 
         return this;
     }

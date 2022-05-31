@@ -1,18 +1,4 @@
-/**
- * Some generic types for working with JSON response objects.
- */
-type JSONValue =
-    | string
-    | number
-    | boolean
-    | JSONObject
-    | JSONArray;
-
-interface JSONObject {
-    [x: string]: JSONValue;
-}
-
-interface JSONArray extends Array<JSONValue> { }
+type JSONObject = Record<string, any>;
 
 /**
  * (partially) defines the shape of the pm.environment object in Postman.
@@ -23,7 +9,7 @@ interface PostmanEnvironment {
     get: (k: string) => any;
     set: (k: string, v: any) => any;
     unset: (k: string) => any;
-    toObject: () => PostmanEnvironment;
+    toObject: () => JSONObject;
     has: (k: string) => boolean;
     clear: () => any;
 }
@@ -65,3 +51,4 @@ interface Postman {
     response: PostmanResponse;
     variables: PostmanEnvironment;
 }
+
