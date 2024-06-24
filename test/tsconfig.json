@@ -3,6 +3,7 @@
     "compilerOptions": {
         "baseUrl": "./",
         "experimentalDecorators": true,
+        "emitDecoratorMetadata": true,
         "strictPropertyInitialization": false,
         "isolatedModules": false,
         "strict": false,

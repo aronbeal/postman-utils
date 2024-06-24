@@ -3,7 +3,7 @@ import Token from './Token';
  * Stores a representation of a logged-in user.
  * This tracks the possible properties in a Hebbia token.
  */
- class User {
+class User {
     token: Token;
     constructor(token: Token) {
         let decoded_token = token.getDecodedToken();
